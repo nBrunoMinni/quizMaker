@@ -1,7 +1,8 @@
 <?php
 // Markdown parser
 //   # / ## / ### ...   -> headers
-//   **bold line**       -> instruction text
+//   **bold line**       -> instruction text (below header, not in list)
+//   **bold** / *italiac* -> regular styling (in questions)
 //   N. ... _|answer|_ ...           -> fill-in question 
 //   N. prompt — |OPT1| / OPT2       -> select question 
 
@@ -129,6 +130,14 @@ function gradeSubmission($blocks, $post) {
 }
 
 
+function mdInline($s) {
+  $s = preg_replace('/\*\*\*(.+?)\*\*\*/u', '<b><i>$1</i></b>', $s);
+  $s = preg_replace('/\*\*(.+?)\*\*/u', '<b>$1</b>', $s);
+  $s = preg_replace('/\*(.+?)\*/u', '<i>$1</i>', $s);
+  return $s;
+}
+
+
 function renderBlock($idx, $b, $submitted, $results, $readonly = false) {
   ob_start();
   if ($b['type'] === 'header') {
@@ -139,11 +148,16 @@ function renderBlock($idx, $b, $submitted, $results, $readonly = false) {
   } elseif ($b['type'] === 'instr') {
     echo '<p class="instr">' . htmlspecialchars($b['text'], ENT_QUOTES, 'UTF-8') . '</p>';
   } elseif ($b['type'] === 'text') {
-    echo '<div class="question"><strong>' . $b['num'] . '.</strong> ' . htmlspecialchars($b['text'], ENT_QUOTES, 'UTF-8') . '</div>';
+
+  echo '<div class="question"><strong>' . $b['num'] . '.</strong> ' . mdInline(htmlspecialchars($b['text'], ENT_QUOTES, 'UTF-8')) . '</div>';
+
+
   } elseif ($b['type'] === 'question') {
     echo '<div class="question"><strong>' . $b['num'] . '.</strong> ';
     if ($b['qtype'] === 'select') {
-      echo htmlspecialchars($b['prompt'], ENT_QUOTES, 'UTF-8') . ' — ';
+
+      echo mdInline(htmlspecialchars($b['prompt'], ENT_QUOTES, 'UTF-8')) . ' — ';
+      
       $given = $submitted ? $results[$idx]['given'][0] : '';
       $dis = $readonly ? 'disabled' : '';
       foreach ($b['options'] as $opt) {
@@ -159,8 +173,8 @@ function renderBlock($idx, $b, $submitted, $results, $readonly = false) {
       }
     } else {
       // Escape the uploaded md before subing input, then pass htmlspecialchars
-      $html = htmlspecialchars($b['template'], ENT_QUOTES, 'UTF-8');
-      foreach ($b['answers'] as $i => $ans) {
+      $html = mdInline(htmlspecialchars($b['template'], ENT_QUOTES, 'UTF-8'));
+       foreach ($b['answers'] as $i => $ans) {
         $name = "q{$idx}_{$i}";
         $val = '';
         $cls = '';
